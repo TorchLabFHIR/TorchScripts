@@ -8,7 +8,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/platform-win%20%7C%20mac%20%7C%20linux-orange?style=flat-square" alt="platform" />
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-orange?style=flat-square" alt="MIT License" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-PolyForm%20Shield-orange?style=flat-square" alt="PolyForm Shield License" /></a>
   <a href="https://www.npmjs.com/package/@torchlab/fhir"><img src="https://img.shields.io/badge/npm-%40torchlab%2Ffhir-orange?style=flat-square" alt="npm package" /></a>
   <a href="https://torchlab.dev"><img src="https://img.shields.io/badge/torchlab.dev-orange?style=flat-square" alt="torchlab.dev" /></a>
 </p>
@@ -344,4 +344,4 @@ Or add `-Xmx4g` to the `java` invocation in `_genonce.sh` / `_genonce.bat`.
 
 ## License
 
-[MIT](LICENSE) © [TorchLab](https://torchlab.dev)
+[PolyForm Shield 1.0.0](LICENSE) © [TorchLab](https://torchlab.dev)
