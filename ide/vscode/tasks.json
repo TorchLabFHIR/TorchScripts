@@ -1,0 +1,130 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "FHIR: Build IG",
+      "detail": "Run the HL7 IG Publisher once (shared publisher + tx cache via Torch)",
+      "type": "shell",
+      "command": "./_genonce.sh",
+      "windows": { "command": ".\\_genonce.bat" },
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "showReuseMessage": false,
+        "clear": true
+      },
+      "problemMatcher": [
+        {
+          "owner": "fhir-publisher",
+          "fileLocation": ["relative", "${workspaceFolder}"],
+          "pattern": {
+            "regexp": "^.*Error.*:\\s*(.+)$",
+            "message": 1
+          }
+        }
+      ]
+    },
+    {
+      "label": "FHIR: Watch mode",
+      "detail": "Build IG continuously, rebuilding on file changes",
+      "type": "shell",
+      "command": "./_gencontinuous.sh",
+      "windows": { "command": ".\\_gencontinuous.bat" },
+      "group": "build",
+      "isBackground": true,
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "showReuseMessage": false,
+        "clear": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "FHIR: Update Publisher",
+      "detail": "Download the latest HL7 IG Publisher to ~/.torch/publisher.jar (shared)",
+      "type": "shell",
+      "command": "./_updatePublisher.sh",
+      "windows": { "command": ".\\_updatePublisher.bat" },
+      "group": "none",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "showReuseMessage": false
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "FHIR: Run SUSHI",
+      "detail": "Compile FSH files to FHIR resources",
+      "type": "shell",
+      "command": "sushi .",
+      "group": "build",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "showReuseMessage": false,
+        "clear": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "FHIR: SUSHI + Build",
+      "detail": "Run SUSHI then build the IG (FSH projects)",
+      "type": "shell",
+      "command": "sushi . && ./_genonce.sh",
+      "windows": { "command": "sushi . && .\\_genonce.bat" },
+      "group": "build",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "showReuseMessage": false,
+        "clear": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "FHIR: Validate current file",
+      "detail": "Validate the currently open FHIR resource file",
+      "type": "shell",
+      "command": "torch-validate.sh '${file}'",
+      "windows": { "command": "torch-validate.ps1 '${file}'" },
+      "group": "test",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "showReuseMessage": false
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "FHIR: Validate input/resources",
+      "detail": "Validate all resources in input/resources/",
+      "type": "shell",
+      "command": "torch-validate.sh input/resources/",
+      "windows": { "command": "torch-validate.ps1 input\\resources\\" },
+      "group": "test",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "showReuseMessage": false
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "FHIR: Open output in browser",
+      "detail": "Open the IG output/index.html in your default browser",
+      "type": "shell",
+      "command": "open output/index.html",
+      "linux":   { "command": "xdg-open output/index.html" },
+      "windows": { "command": "Start-Process output\\index.html" },
+      "group": "none",
+      "presentation": { "reveal": "silent", "panel": "shared" },
+      "problemMatcher": []
+    }
+  ]
+}

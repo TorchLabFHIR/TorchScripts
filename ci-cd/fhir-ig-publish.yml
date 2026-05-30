@@ -1,0 +1,130 @@
+# ──────────────────────────────────────────────────────────────
+#  Torch  ·  FHIR IG Publish  ·  torchlab.dev
+#
+#  Publishes your FHIR IG to GitHub Pages on push to main.
+#  Supports both FSH/SUSHI and raw JSON/XML IGs.
+#
+#  Setup:
+#    1. Copy to .github/workflows/fhir-ig-publish.yml
+#    2. Enable GitHub Pages: Settings > Pages > Source = GitHub Actions
+#    3. Set FHIR_VERSION below (R4 | R4B | R5)
+#    4. If FSH-based: ensure sushi-config.yaml exists at repo root
+#    5. If raw: ensure ig.ini exists at repo root
+# ──────────────────────────────────────────────────────────────
+
+name: Publish FHIR IG
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:       # allow manual trigger from Actions tab
+
+permissions:
+  contents: read
+  pages:    write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+# ── Configuration — edit these ────────────────────────────────
+env:
+  FHIR_VERSION: "4.0.1"   # 4.0.1 | 4.3.0 | 5.0.0
+  JAVA_VERSION: "21"       # 17 minimum, 21 recommended
+  NODE_VERSION: "20"       # for SUSHI — only used if sushi-config.yaml present
+
+# ── Jobs ──────────────────────────────────────────────────────
+jobs:
+  build:
+    name: Build IG
+    runs-on: ubuntu-latest
+
+    steps:
+      # ── Checkout ─────────────────────────────────────────────
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # ── Detect IG type ────────────────────────────────────────
+      - name: Detect IG type (FSH vs raw)
+        id: ig-type
+        run: |
+          if [ -f sushi-config.yaml ]; then
+            echo "type=fsh" >> $GITHUB_OUTPUT
+            echo "::notice::FSH/SUSHI-based IG detected"
+          elif [ -f ig.ini ]; then
+            echo "type=raw" >> $GITHUB_OUTPUT
+            echo "::notice::Raw JSON/XML IG detected"
+          else
+            echo "::error::Neither sushi-config.yaml nor ig.ini found"
+            exit 1
+          fi
+
+      # ── Java ──────────────────────────────────────────────────
+      - name: Set up Java ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+
+      # ── Node / SUSHI (FSH only) ────────────────────────────────
+      - name: Set up Node.js ${{ env.NODE_VERSION }}
+        if: steps.ig-type.outputs.type == 'fsh'
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install SUSHI
+        if: steps.ig-type.outputs.type == 'fsh'
+        run: npm install -g fsh-sushi
+
+      - name: Run SUSHI
+        if: steps.ig-type.outputs.type == 'fsh'
+        run: sushi .
+
+      # ── Cache publisher jar ───────────────────────────────────
+      - name: Cache IG Publisher
+        id: cache-publisher
+        uses: actions/cache@v4
+        with:
+          path: input-cache/publisher.jar
+          key: ig-publisher-${{ hashFiles('ig.ini', 'sushi-config.yaml') }}
+          restore-keys: ig-publisher-
+
+      - name: Download IG Publisher
+        if: steps.cache-publisher.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p input-cache
+          curl -L --retry 3 --retry-delay 5 \
+            https://github.com/HL7/fhir-ig-publisher/releases/latest/download/publisher.jar \
+            -o input-cache/publisher.jar
+
+      # ── Run Publisher ─────────────────────────────────────────
+      - name: Run HL7 FHIR IG Publisher
+        run: |
+          java \
+            -Xmx4g \
+            -jar input-cache/publisher.jar \
+            -ig . \
+            -tx https://tx.fhir.org/r4
+        # Remove -tx flag and add -tx n/a for offline / no terminology server
+
+      # ── Upload output ──────────────────────────────────────────
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: output/
+
+  # ── Deploy to GitHub Pages ───────────────────────────────────
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

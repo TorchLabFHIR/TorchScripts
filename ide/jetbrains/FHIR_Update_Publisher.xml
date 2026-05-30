@@ -1,0 +1,19 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="FHIR: Update Publisher" type="ShConfigurationType" singleton="true">
+    <!-- Torch FHIR Developer Tools · torchlab.dev -->
+    <!-- Downloads latest publisher.jar to ~/.torch/ (shared across all IGs) -->
+    <!-- Copy this file to .idea/runConfigurations/ in your IG project -->
+    <option name="SCRIPT_TEXT" value="" />
+    <option name="INDEPENDENT_SCRIPT_PATH" value="true" />
+    <option name="SCRIPT_PATH" value="$PROJECT_DIR$/_updatePublisher.sh" />
+    <option name="SCRIPT_OPTIONS" value="" />
+    <option name="INDEPENDENT_SCRIPT_WORKING_DIRECTORY" value="true" />
+    <option name="SCRIPT_WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+    <option name="INDEPENDENT_INTERPRETER_PATH" value="true" />
+    <option name="INTERPRETER_PATH" value="/bin/bash" />
+    <option name="INTERPRETER_OPTIONS" value="" />
+    <option name="EXECUTE_IN_TERMINAL" value="true" />
+    <option name="RUN_WITH_PTY" value="true" />
+    <method v="2" />
+  </configuration>
+</component>

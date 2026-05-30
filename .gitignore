@@ -1,0 +1,17 @@
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Scaffold test output
+ig-scaffold/test/
+
+# Claude Code session data
+.claude/

@@ -1,0 +1,53 @@
+// Torch FHIR Developer — Suggested VS Code Keybindings
+// torchlab.dev
+//
+// Add these to your keybindings.json:
+//   Ctrl+Shift+P -> "Open Keyboard Shortcuts (JSON)"
+//
+// These keybindings only activate when you are inside a FHIR IG workspace
+// (i.e. when a sushi-config.yaml or ig.ini file exists at the workspace root).
+
+[
+  {
+    // Build IG once — replaces default build shortcut in FHIR projects
+    "key": "ctrl+shift+b",
+    "command": "workbench.action.tasks.runTask",
+    "args": "FHIR: Build IG",
+    "when": "workspaceFolderCount > 0"
+  },
+  {
+    // Toggle watch mode
+    "key": "ctrl+f5",
+    "command": "workbench.action.tasks.runTask",
+    "args": "FHIR: Watch mode",
+    "when": "workspaceFolderCount > 0"
+  },
+  {
+    // Validate the currently open file
+    "key": "ctrl+shift+alt+v",
+    "command": "workbench.action.tasks.runTask",
+    "args": "FHIR: Validate current file",
+    "when": "editorLangId == 'json' || editorLangId == 'xml'"
+  },
+  {
+    // Run SUSHI on the workspace
+    "key": "ctrl+shift+alt+s",
+    "command": "workbench.action.tasks.runTask",
+    "args": "FHIR: Run SUSHI",
+    "when": "workspaceFolderCount > 0"
+  },
+  {
+    // SUSHI + Build combined (FSH projects)
+    "key": "ctrl+shift+alt+b",
+    "command": "workbench.action.tasks.runTask",
+    "args": "FHIR: SUSHI + Build",
+    "when": "workspaceFolderCount > 0"
+  },
+  {
+    // Open IG output in browser
+    "key": "ctrl+shift+alt+o",
+    "command": "workbench.action.tasks.runTask",
+    "args": "FHIR: Open output in browser",
+    "when": "workspaceFolderCount > 0"
+  }
+]

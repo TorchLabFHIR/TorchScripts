@@ -1,0 +1,12 @@
+{
+  "recommendations": [
+    "Yannick-Lagger.vscode-fhir-tools",
+    "kmahalingam.vscode-language-fsh",
+    "redhat.vscode-xml",
+    "redhat.vscode-yaml",
+    "humao.rest-client",
+    "GitHub.vscode-github-actions",
+    "ms-vscode.makefile-tools"
+  ],
+  "unwantedRecommendations": []
+}

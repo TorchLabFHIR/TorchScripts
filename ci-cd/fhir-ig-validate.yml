@@ -1,0 +1,197 @@
+# ──────────────────────────────────────────────────────────────
+#  Torch  ·  FHIR IG Validate on PR  ·  torchlab.dev
+#
+#  Validates changed FHIR resources and runs SUSHI on every
+#  pull request. Blocks merge if validation errors are found.
+#
+#  Setup:
+#    1. Copy to .github/workflows/fhir-ig-validate.yml
+#    2. Set FHIR_VERSION and IG_PACKAGES below
+#    3. Optional: add branch protection requiring this check
+# ──────────────────────────────────────────────────────────────
+
+name: Validate FHIR IG
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'input/**'
+      - 'sushi-config.yaml'
+      - 'ig.ini'
+      - 'fsh-generated/**'
+  workflow_dispatch:
+
+# ── Configuration — edit these ────────────────────────────────
+env:
+  FHIR_VERSION: "4.0.1"   # 4.0.1 | 4.3.0 | 5.0.0
+  JAVA_VERSION: "21"
+  NODE_VERSION: "20"
+  # Space-separated IG packages to validate against (leave empty for spec-only)
+  # Example: "hl7.fhir.us.core#6.1.0 hl7.fhir.us.davinci-pas#2.0.0"
+  IG_PACKAGES: ""
+
+jobs:
+  validate:
+    name: Validate
+    runs-on: ubuntu-latest
+    permissions:
+      contents:      read
+      pull-requests: write   # for PR comment posting
+
+    steps:
+      # ── Checkout ─────────────────────────────────────────────
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # ── Java ──────────────────────────────────────────────────
+      - name: Set up Java ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+
+      # ── Node / SUSHI (FSH only) ────────────────────────────────
+      - name: Set up Node.js
+        if: hashFiles('sushi-config.yaml') != ''
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install SUSHI
+        if: hashFiles('sushi-config.yaml') != ''
+        run: npm install -g fsh-sushi
+
+      - name: Run SUSHI
+        if: hashFiles('sushi-config.yaml') != ''
+        run: |
+          sushi .
+          echo "::notice::SUSHI compiled successfully"
+
+      # ── Cache validator jar ───────────────────────────────────
+      - name: Cache FHIR Validator
+        id: cache-validator
+        uses: actions/cache@v4
+        with:
+          path: ~/.torch/validator_cli.jar
+          key: fhir-validator-${{ env.FHIR_VERSION }}-latest
+          restore-keys: fhir-validator-
+
+      - name: Download FHIR Validator
+        if: steps.cache-validator.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p ~/.torch
+          curl -L --retry 3 --retry-delay 5 \
+            https://github.com/hapifhir/org.hl7.fhir.core/releases/latest/download/validator_cli.jar \
+            -o ~/.torch/validator_cli.jar
+
+      # ── Find changed FHIR files ────────────────────────────────
+      - name: Identify changed FHIR resources
+        id: changed-files
+        uses: tj-actions/changed-files@v45
+        with:
+          files: |
+            input/**/*.json
+            input/**/*.xml
+            fsh-generated/resources/**/*.json
+
+      # ── Validate changed files ─────────────────────────────────
+      - name: Validate changed resources
+        if: steps.changed-files.outputs.any_changed == 'true'
+        id: validate
+        run: |
+          # Build -ig flags from IG_PACKAGES env
+          IG_FLAGS=""
+          for pkg in $IG_PACKAGES; do
+            IG_FLAGS="$IG_FLAGS -ig $pkg"
+          done
+
+          CHANGED_FILES="${{ steps.changed-files.outputs.all_changed_files }}"
+          # Filter out non-FHIR json (package.json, sushi-config etc.)
+          FHIR_FILES=$(echo "$CHANGED_FILES" | tr ' ' '\n' | \
+            grep -E '\.(json|xml)$' | \
+            grep -v 'package\.json' | \
+            grep -v 'sushi-config' | \
+            tr '\n' ' ')
+
+          if [ -z "$FHIR_FILES" ]; then
+            echo "::notice::No FHIR resource files changed"
+            exit 0
+          fi
+
+          echo "Validating: $FHIR_FILES"
+
+          java -Xmx3g \
+            -jar ~/.torch/validator_cli.jar \
+            $FHIR_FLAGS \
+            -version ${{ env.FHIR_VERSION }} \
+            $IG_FLAGS \
+            -tx https://tx.fhir.org/r4 \
+            -output validation-results.json \
+            $FHIR_FILES 2>&1 | tee validation-output.txt
+
+          echo "exit_code=${PIPESTATUS[0]}" >> $GITHUB_OUTPUT
+
+      # ── Validate all resources (full run) if no changed-files action ──
+      - name: Validate all input resources (fallback)
+        if: steps.changed-files.outputs.any_changed != 'true'
+        run: |
+          echo "::notice::No changed FHIR files detected — skipping targeted validation"
+
+      # ── Post summary to PR ────────────────────────────────────
+      - name: Post validation summary
+        if: steps.changed-files.outputs.any_changed == 'true' && always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            let body = '## FHIR Validation Results\n\n';
+
+            try {
+              const output = fs.readFileSync('validation-output.txt', 'utf8');
+              const hasErrors   = output.includes('Error') || output.includes('error');
+              const hasWarnings = output.includes('Warning') || output.includes('warning');
+
+              if (hasErrors) {
+                body += '❌ **Validation errors found** — please fix before merging.\n\n';
+              } else if (hasWarnings) {
+                body += '⚠️ **Validation warnings** — review before merging.\n\n';
+              } else {
+                body += '✅ **All resources validated successfully**\n\n';
+              }
+
+              body += '<details><summary>Full output</summary>\n\n```\n';
+              // Truncate if too long for PR comment
+              const truncated = output.length > 8000 ? output.slice(0, 8000) + '\n... (truncated)' : output;
+              body += truncated + '\n```\n</details>\n\n';
+            } catch (e) {
+              body += '_No validation output available._\n';
+            }
+
+            body += '\n---\n*Powered by [Torch FHIR Dev Toolkit](https://torchlab.dev)*';
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo:  context.repo.repo,
+              issue_number: context.issue.number,
+              body
+            });
+
+      # ── Fail job if errors found ───────────────────────────────
+      - name: Check validation result
+        if: steps.validate.outputs.exit_code != '' && steps.validate.outputs.exit_code != '0'
+        run: |
+          echo "::error::FHIR validation failed — see PR comment for details"
+          exit 1
+
+      # ── Upload artifacts ──────────────────────────────────────
+      - name: Upload validation artifacts
+        if: always() && hashFiles('validation-results.json') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: fhir-validation-results
+          path: |
+            validation-results.json
+            validation-output.txt
+          retention-days: 14
